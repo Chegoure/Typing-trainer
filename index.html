@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Тренажёр слепой печати</title>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --surface2: #222222;
+      --border: #2a2a2a;
+      --text: #d4d4d4;
+      --muted: #6b6b6b;
+      --green: #4ec9b0;
+      --green-bright: #3dd68c;
+      --error: #f07178;
+      --cursor: #4ec9b0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Consolas', 'Courier New', 'SF Mono', Monaco, monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+      line-height: 1.5;
+    }
+
+    h1 {
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-bottom: 2.5rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 780px;
+    }
+
+    #setup {
+      display: block;
+    }
+
+    #setup.hidden {
+      display: none;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    #sourceText {
+      width: 100%;
+      min-height: 200px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      padding: 1rem 1.1rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #sourceText:focus {
+      border-color: var(--green);
+    }
+
+    #sourceText::placeholder {
+      color: var(--muted);
+    }
+
+    .btn {
+      margin-top: 1rem;
+      background: var(--surface2);
+      color: var(--green);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.65rem 1.4rem;
+      font-size: 0.9rem;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn:hover {
+      background: #2a2a2a;
+      border-color: var(--green);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #practice {
+      display: none;
+    }
+
+    #practice.active {
+      display: block;
+    }
+
+    .stats {
+      display: flex;
+      gap: 1.75rem;
+      margin-bottom: 1.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .stats span strong {
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    /* Верхняя строка — напечатанное (как на скрине) */
+    .typed-line {
+      background: var(--surface);
+      border-radius: 4px;
+      padding: 0.85rem 1.1rem;
+      margin-bottom: 1.5rem;
+      font-size: 1.31rem; /* +25% */
+      line-height: 1.65;
+      min-height: 3.1rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .typed-line .correct {
+      color: var(--green-bright);
+    }
+
+    .typed-line .error {
+      color: var(--error);
+      background: rgba(240, 113, 120, 0.15);
+      border-radius: 2px;
+    }
+
+    .typed-line .caret {
+      display: inline-block;
+      width: 2.5px;
+      height: 1.2em;
+      background: var(--cursor);
+      vertical-align: text-bottom;
+      margin-left: 1px;
+      animation: blink 1s step-end infinite;
+      box-shadow: 0 0 6px rgba(78, 201, 176, 0.5);
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* Эталонный текст — ровно 3 строки, без скроллбара */
+    .text-display {
+      position: relative;
+      background: var(--surface);
+      border-radius: 4px;
+      padding: 0.9rem 1.1rem;
+      font-size: 1.31rem;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      word-break: break-word;
+      height: calc(1.31rem * 1.75 * 3 + 1.8rem);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+      user-select: none;
+    }
+
+    .text-display .line {
+      display: block;
+      min-height: 1.75em;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .char {
+      display: inline;
+    }
+
+    .char.correct {
+      color: var(--green-bright);
+    }
+
+    .char.error {
+      color: var(--error);
+      background: rgba(240, 113, 120, 0.15);
+      border-radius: 2px;
+    }
+
+    .char.pending {
+      color: var(--muted);
+    }
+
+    .char.space {
+      white-space: pre;
+    }
+
+    .char.tab {
+      color: var(--muted);
+      opacity: 0.65;
+    }
+
+    .cursor {
+      position: absolute;
+      width: 2px;
+      height: 1.25em;
+      background: var(--cursor);
+      border-radius: 1px;
+      pointer-events: none;
+      transition: left 0.06s cubic-bezier(0.22, 1, 0.36, 1),
+                  top 0.06s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: blink 1.05s step-end infinite;
+      z-index: 10;
+      box-shadow: 0 0 8px rgba(78, 201, 176, 0.45);
+      will-change: left, top;
+    }
+
+    #typingInput {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      height: 0;
+      width: 0;
+      border: none;
+      padding: 0;
+      resize: none;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-top: 0;
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--muted);
+      color: var(--text);
+    }
+
+    .done-message {
+      display: none;
+      text-align: center;
+      padding: 1.25rem;
+      background: rgba(61, 214, 140, 0.08);
+      border: 1px solid rgba(61, 214, 140, 0.35);
+      border-radius: 6px;
+      margin-top: 1.25rem;
+    }
+
+    .done-message.show {
+      display: block;
+    }
+
+    .done-message h2 {
+      color: var(--green-bright);
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 0.35rem;
+    }
+
+    .done-message p {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Тренажёр слепой печати</h1>
+
+  <div class="card">
+    <div id="setup">
+      <label for="sourceText">Вставьте текст для тренировки</label>
+      <textarea id="sourceText" placeholder="Скопируйте сюда любой текст..."></textarea>
+      <button class="btn" id="startBtn" disabled>Готово</button>
+    </div>
+
+    <div id="practice">
+      <div class="stats">
+        <span>Скорость: <strong id="wpm">0</strong> зн/мин</span>
+        <span>Точность: <strong id="accuracy">100</strong>%</span>
+        <span>Ошибки: <strong id="errors">0</strong></span>
+        <span>Прогресс: <strong id="progress">0</strong>%</span>
+      </div>
+
+      <!-- Верхняя строка: то, что уже напечатано -->
+      <div class="typed-line" id="typedLine"><span class="caret" id="lineCaret"></span></div>
+
+      <!-- Эталонный текст -->
+      <div class="text-display" id="textDisplay">
+        <div class="cursor" id="cursor"></div>
+      </div>
+
+      <textarea id="typingInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+
+      <p class="hint">Пробел и Tab работают как обычно. Просто печатайте.</p>
+
+      <div class="actions">
+        <button class="btn btn-secondary" id="restartBtn">Заново</button>
+        <button class="btn btn-secondary" id="newTextBtn">Новый текст</button>
+      </div>
+
+      <div class="done-message" id="doneMessage">
+        <h2>Готово!</h2>
+        <p>Вы успешно напечатали весь текст.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sourceText = document.getElementById('sourceText');
+    const startBtn = document.getElementById('startBtn');
+    const setup = document.getElementById('setup');
+    const practice = document.getElementById('practice');
+    const textDisplay = document.getElementById('textDisplay');
+    const typedLine = document.getElementById('typedLine');
+    const lineCaret = document.getElementById('lineCaret');
+    const typingInput = document.getElementById('typingInput');
+    const cursor = document.getElementById('cursor');
+    const wpmEl = document.getElementById('wpm');
+    const accuracyEl = document.getElementById('accuracy');
+    const errorsEl = document.getElementById('errors');
+    const progressEl = document.getElementById('progress');
+    const restartBtn = document.getElementById('restartBtn');
+    const newTextBtn = document.getElementById('newTextBtn');
+    const doneMessage = document.getElementById('doneMessage');
+
+    let target = '';
+    let position = 0;
+    let errorCount = 0;
+    let startedAt = null;
+    let finished = false;
+    let chars = [];
+    let typedValue = '';
+
+    sourceText.addEventListener('input', () => {
+      startBtn.disabled = !sourceText.value.trim();
+    });
+
+    startBtn.addEventListener('click', () => {
+      target = sourceText.value.replace(/\r/g, '');
+      if (!target) return;
+      startPractice();
+    });
+
+    // Индексы начала каждой строки в target
+    let lineStarts = [];
+
+    function buildLineStarts() {
+      lineStarts = [0];
+      for (let i = 0; i < target.length; i++) {
+        if (target[i] === '\n') lineStarts.push(i + 1);
+      }
+    }
+
+    function getLineIndex(pos) {
+      let line = 0;
+      for (let i = 0; i < lineStarts.length; i++) {
+        if (lineStarts[i] <= pos) line = i;
+        else break;
+      }
+      return line;
+    }
+
+    function startPractice() {
+      setup.classList.add('hidden');
+      practice.classList.add('active');
+      doneMessage.classList.remove('show');
+      finished = false;
+      position = 0;
+      errorCount = 0;
+      startedAt = null;
+      typedValue = '';
+      chars = [];
+
+      buildLineStarts();
+
+      typingInput.value = '';
+      typedLine.innerHTML = '';
+      typedLine.appendChild(lineCaret);
+      renderTextDisplay();
+      typingInput.focus();
+      updateStats();
+      requestAnimationFrame(() => updateCursor());
+    }
+
+    // Рисуем только 3 строки вокруг текущей
+    function renderTextDisplay() {
+      const curLine = getLineIndex(position);
+      const totalLines = lineStarts.length;
+      let from = Math.max(0, curLine - 1);
+      let to = Math.min(totalLines - 1, from + 2);
+      // если в конце — сдвигаем окно назад, чтобы всегда 3 строки
+      if (to - from < 2) {
+        from = Math.max(0, to - 2);
+      }
+
+      // map: global index -> span (только видимые)
+      chars = [];
+      textDisplay.innerHTML = '';
+      textDisplay.appendChild(cursor);
+
+      for (let li = from; li <= to; li++) {
+        const lineEl = document.createElement('div');
+        lineEl.className = 'line';
+
+        const start = lineStarts[li];
+        const end = (li + 1 < lineStarts.length) ? lineStarts[li + 1] - 1 : target.length;
+        // end указывает на \n или конец текста; символы строки: [start, end)
+
+        for (let i = start; i < end; i++) {
+          const span = document.createElement('span');
+          const ch = target[i];
+          span.className = 'char';
+
+          if (i < typedValue.length) {
+            span.classList.add(typedValue[i] === ch ? 'correct' : 'error');
+          } else {
+            span.classList.add('pending');
+          }
+
+          if (ch === ' ') {
+            span.textContent = ' ';
+            span.classList.add('space');
+          } else if (ch === '\t') {
+            span.textContent = ' →  ';
+            span.classList.add('tab');
+            span.title = 'Tab';
+          } else {
+            span.textContent = ch;
+          }
+
+          lineEl.appendChild(span);
+          chars[i] = span; // индекс = позиция в target
+        }
+
+        // Пустая строка — всё равно нужен блок высоты
+        if (end <= start) {
+          lineEl.innerHTML = '&nbsp;';
+        }
+
+        textDisplay.appendChild(lineEl);
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (!practice.classList.contains('active') || finished) return;
+
+      if (document.activeElement !== typingInput) {
+        typingInput.focus();
+      }
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        handleTab();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        appendChar('\n');
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        if (typedValue.length > 0) {
+          typedValue = typedValue.slice(0, -1);
+          sync();
+        }
+        return;
+      }
+    });
+
+    typingInput.addEventListener('input', () => {
+      if (finished) return;
+      const val = typingInput.value;
+      typingInput.value = '';
+
+      for (const ch of val) {
+        if (typedValue.length >= target.length) break;
+        appendChar(ch);
+      }
+    });
+
+    // Tab: если в эталоне \t — вставляем \t;
+    // если пробелы (отступ) — «съедаем» всю группу пробелов подряд
+    function handleTab() {
+      if (finished || typedValue.length >= target.length) return;
+      if (!startedAt) startedAt = Date.now();
+
+      const pos = typedValue.length;
+      const expected = target[pos];
+
+      if (expected === '\t') {
+        typedValue += '\t';
+      } else if (expected === ' ') {
+        let i = pos;
+        while (i < target.length && target[i] === ' ') {
+          typedValue += ' ';
+          i++;
+        }
+      } else {
+        typedValue += '\t';
+      }
+      sync();
+    }
+
+    function appendChar(ch) {
+      if (finished || typedValue.length >= target.length) return;
+      if (!startedAt) startedAt = Date.now();
+      typedValue += ch;
+      sync();
+    }
+
+    function sync() {
+      position = typedValue.length;
+      errorCount = 0;
+
+      for (let i = 0; i < typedValue.length; i++) {
+        if (typedValue[i] !== target[i]) errorCount++;
+      }
+
+      renderTextDisplay();
+      renderTypedLine();
+      requestAnimationFrame(() => updateCursor());
+      updateStats();
+
+      if (position >= target.length) {
+        finished = true;
+        doneMessage.classList.add('show');
+      }
+    }
+
+    function renderTypedLine() {
+      typedLine.innerHTML = '';
+
+      // Показываем только текущую строку: от последнего \n до конца
+      let start = typedValue.lastIndexOf('\n');
+      start = start === -1 ? 0 : start + 1;
+
+      for (let i = start; i < typedValue.length; i++) {
+        const span = document.createElement('span');
+        const expected = target[i];
+        const ch = typedValue[i];
+
+        // \n на текущей строке не рисуем — после Enter строка сразу очищается
+        if (ch === '\n') continue;
+
+        span.className = (ch === expected) ? 'correct' : 'error';
+
+        if (ch === '\t') {
+          span.textContent = ' →  ';
+        } else if (ch === ' ') {
+          span.textContent = ' ';
+          span.style.whiteSpace = 'pre';
+        } else {
+          span.textContent = ch;
+        }
+        typedLine.appendChild(span);
+      }
+      typedLine.appendChild(lineCaret);
+    }
+
+    function updateCursor() {
+      const displayRect = textDisplay.getBoundingClientRect();
+      const padLeft = 0;
+      const padTop = 0;
+
+      // Ищем span для текущей позиции
+      let targetEl = chars[position];
+
+      // Если стоим на \n или за концом строки — курсор в конце предыдущего символа / строки
+      if (!targetEl) {
+        // position указывает на \n или конец текста
+        if (position > 0 && chars[position - 1]) {
+          targetEl = chars[position - 1];
+          const displayRect2 = textDisplay.getBoundingClientRect();
+          const r = targetEl.getBoundingClientRect();
+          cursor.style.left = (r.right - displayRect2.left) + 'px';
+          cursor.style.top = (r.top - displayRect2.top) + 'px';
+          cursor.style.display = 'block';
+          return;
+        }
+        // Начало пустой строки
+        const lines = textDisplay.querySelectorAll('.line');
+        const curLine = getLineIndex(position);
+        const totalLines = lineStarts.length;
+        let from = Math.max(0, curLine - 1);
+        let to = Math.min(totalLines - 1, from + 2);
+        if (to - from < 2) from = Math.max(0, to - 2);
+        const localIdx = curLine - from;
+        if (lines[localIdx]) {
+          const r = lines[localIdx].getBoundingClientRect();
+          cursor.style.left = (r.left - displayRect.left + 4) + 'px';
+          cursor.style.top = (r.top - displayRect.top) + 'px';
+          cursor.style.display = 'block';
+          return;
+        }
+        cursor.style.left = '1.1rem';
+        cursor.style.top = '0.9rem';
+        cursor.style.display = 'block';
+        return;
+      }
+
+      const r = targetEl.getBoundingClientRect();
+      cursor.style.left = (r.left - displayRect.left) + 'px';
+      cursor.style.top = (r.top - displayRect.top) + 'px';
+      cursor.style.display = 'block';
+    }
+
+    function updateStats() {
+      const total = target.length || 1;
+      progressEl.textContent = Math.min(100, Math.round((position / total) * 100));
+      errorsEl.textContent = errorCount;
+
+      const typed = position;
+      const correct = Math.max(0, typed - errorCount);
+      accuracyEl.textContent = typed === 0 ? 100 : Math.round((correct / typed) * 100);
+
+      if (startedAt && typed > 0) {
+        const minutes = (Date.now() - startedAt) / 60000;
+        wpmEl.textContent = Math.round(typed / Math.max(minutes, 0.001));
+      } else {
+        wpmEl.textContent = '0';
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (practice.classList.contains('active') && !finished) {
+        if (!e.target.closest('button')) {
+          typingInput.focus();
+        }
+      }
+    });
+
+    restartBtn.addEventListener('click', () => {
+      if (target) startPractice();
+    });
+
+    newTextBtn.addEventListener('click', () => {
+      practice.classList.remove('active');
+      setup.classList.remove('hidden');
+      sourceText.value = target;
+      startBtn.disabled = !target.trim();
+      sourceText.focus();
+    });
+
+    window.addEventListener('resize', () => {
+      if (practice.classList.contains('active')) updateCursor();
+    });
+  </script>
+</body>
+</html>
