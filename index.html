@@ -301,10 +301,50 @@
       color: var(--muted);
       font-size: 0.85rem;
     }
+
+    /* Режим «Дзен»: прячем лишнее, место сохраняем — блоки не прыгают */
+    body.zen h1,
+    body.zen .stats,
+    body.zen .hint,
+    body.zen .actions,
+    body.zen .done-message {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    #zenFab {
+      display: none;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 100;
+      background: var(--surface2);
+      color: var(--green);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.45rem 0.9rem;
+      font-size: 0.8rem;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+      opacity: 0.7;
+    }
+
+    #zenFab:hover {
+      opacity: 1;
+      border-color: var(--green);
+    }
+
+    body.zen #zenFab {
+      display: block;
+    }
   </style>
 </head>
 <body>
   <h1>Тренажёр слепой печати</h1>
+
+  <button type="button" id="zenFab" title="Выйти из дзена">Дзен</button>
 
   <div class="card">
     <div id="setup">
@@ -336,6 +376,7 @@
       <div class="actions">
         <button class="btn btn-secondary" id="restartBtn">Заново</button>
         <button class="btn btn-secondary" id="newTextBtn">Новый текст</button>
+        <button class="btn btn-secondary" id="zenBtn">Дзен</button>
       </div>
 
       <div class="done-message" id="doneMessage">
@@ -361,6 +402,8 @@
     const progressEl = document.getElementById('progress');
     const restartBtn = document.getElementById('restartBtn');
     const newTextBtn = document.getElementById('newTextBtn');
+    const zenBtn = document.getElementById('zenBtn');
+    const zenFab = document.getElementById('zenFab');
     const doneMessage = document.getElementById('doneMessage');
 
     let target = '';
@@ -496,7 +539,7 @@
 
       if (e.key === 'Enter') {
         e.preventDefault();
-        appendChar('\n');
+        handleEnter();
         return;
       }
 
@@ -520,6 +563,36 @@
         appendChar(ch);
       }
     });
+
+    // Enter: обычный \n, либо пустая/пробельная строка (пробелы/табы до \n)
+    function handleEnter() {
+      if (finished || typedValue.length >= target.length) return;
+      if (!startedAt) startedAt = Date.now();
+
+      const pos = typedValue.length;
+      const expected = target[pos];
+
+      if (expected === '\n') {
+        typedValue += '\n';
+        sync();
+        return;
+      }
+
+      // Строка из одних пробелов/табов до перевода строки — съедаем всё и \n
+      let i = pos;
+      while (i < target.length && (target[i] === ' ' || target[i] === '\t')) {
+        i++;
+      }
+      if (i < target.length && target[i] === '\n') {
+        typedValue += target.slice(pos, i + 1);
+        sync();
+        return;
+      }
+
+      // Иначе просто \n (будет ошибка, если ожидался другой символ)
+      typedValue += '\n';
+      sync();
+    }
 
     // Tab: если в эталоне \t — вставляем \t;
     // если пробелы (отступ) — «съедаем» всю группу пробелов подряд
@@ -677,12 +750,22 @@
     });
 
     newTextBtn.addEventListener('click', () => {
+      document.body.classList.remove('zen');
       practice.classList.remove('active');
       setup.classList.remove('hidden');
       sourceText.value = target;
       startBtn.disabled = !target.trim();
       sourceText.focus();
     });
+
+    function toggleZen() {
+      document.body.classList.toggle('zen');
+      typingInput.focus();
+      requestAnimationFrame(() => updateCursor());
+    }
+
+    zenBtn.addEventListener('click', toggleZen);
+    zenFab.addEventListener('click', toggleZen);
 
     window.addEventListener('resize', () => {
       if (practice.classList.contains('active')) updateCursor();
