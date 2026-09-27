@@ -361,6 +361,17 @@
       color: var(--text);
     }
 
+    .btn-secondary.active-toggle {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    /* Скрыть верхнюю строку набранного — место сохраняем, блоки не прыгают */
+    body.hide-typed .typed-line {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
     .done-message {
       display: none;
       text-align: center;
@@ -463,6 +474,7 @@
         <button class="btn btn-secondary" id="restartBtn">Заново</button>
         <button class="btn btn-secondary" id="newTextBtn">Новый текст</button>
         <button class="btn btn-secondary" id="cursorBlinkBtn" title="Мигание курсора">Курсор: статика</button>
+        <button class="btn btn-secondary" id="typedLineBtn" title="Скрыть/показать строку набранного">Поле ввода</button>
         <button class="btn btn-secondary" id="zenBtn">Тишина</button>
       </div>
 
@@ -492,6 +504,7 @@
     const zenBtn = document.getElementById('zenBtn');
     const zenFab = document.getElementById('zenFab');
     const cursorBlinkBtn = document.getElementById('cursorBlinkBtn');
+    const typedLineBtn = document.getElementById('typedLineBtn');
     const doneMessage = document.getElementById('doneMessage');
     const sampleBtn = document.getElementById('sampleBtn');
 
@@ -982,6 +995,8 @@ html, body {
 
     newTextBtn.addEventListener('click', () => {
       document.body.classList.remove('zen');
+      document.body.classList.remove('hide-typed');
+      typedLineBtn.classList.remove('active-toggle');
       practice.classList.remove('active');
       setup.classList.remove('hidden');
       sourceText.value = target;
@@ -997,6 +1012,14 @@ html, body {
 
     zenBtn.addEventListener('click', toggleZen);
     zenFab.addEventListener('click', toggleZen);
+
+    // Скрыть/показать верхнюю строку набранного текста
+    typedLineBtn.addEventListener('click', () => {
+      document.body.classList.toggle('hide-typed');
+      typedLineBtn.classList.toggle('active-toggle');
+      focusInput();
+      requestAnimationFrame(() => updateCursor());
+    });
 
     // Режим курсора: статика / мигание (общий таймер — оба синхронны)
     let cursorBlink = false;
