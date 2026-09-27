@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title><touch></typing></title>
   <style>
     :root {
@@ -22,18 +22,34 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      height: 100%;
+      overflow: hidden;
     }
 
     body {
       font-family: 'Consolas', 'Courier New', 'SF Mono', Monaco, monospace;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      min-height: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 3rem 1.5rem;
+      padding: 1.5rem 1rem;
       line-height: 1.5;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      /* iOS: не даём странице «прыгать» при появлении клавиатуры */
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
     }
 
     h1 {
@@ -73,7 +89,7 @@
       border-radius: 6px;
       color: var(--text);
       font-family: inherit;
-      font-size: 0.95rem;
+      font-size: 16px; /* iOS: без автозума при фокусе */
       line-height: 1.7;
       padding: 1rem 1.1rem;
       resize: vertical;
@@ -298,15 +314,25 @@
       will-change: left, top;
     }
 
+    /* Скрытый input: на iOS без синего системного курсора и без зума */
     #typingInput {
-      position: absolute;
+      position: fixed;
+      top: 0;
+      left: 0;
       opacity: 0;
-      pointer-events: none;
-      height: 0;
-      width: 0;
+      height: 1px;
+      width: 1px;
       border: none;
       padding: 0;
+      margin: 0;
       resize: none;
+      caret-color: transparent;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      font-size: 16px; /* iOS не зумит, если >= 16px */
+      outline: none;
+      pointer-events: none;
+      z-index: -1;
     }
 
     .hint {
@@ -617,7 +643,7 @@ html, body {
       typedLine.innerHTML = '';
       typedLine.appendChild(lineCaret);
       renderTextDisplay();
-      typingInput.focus();
+      focusInput();
       updateStats();
       requestAnimationFrame(() => updateCursor());
     }
@@ -681,11 +707,22 @@ html, body {
       }
     }
 
+    function focusInput() {
+      // preventScroll — чтобы iOS/Safari не прокручивал страницу к скрытому input
+      try {
+        typingInput.focus({ preventScroll: true });
+      } catch (_) {
+        const y = window.scrollY;
+        typingInput.focus();
+        window.scrollTo(0, y);
+      }
+    }
+
     document.addEventListener('keydown', (e) => {
       if (!practice.classList.contains('active') || finished) return;
 
       if (document.activeElement !== typingInput) {
-        typingInput.focus();
+        focusInput();
       }
 
       if (e.key === 'Tab') {
@@ -927,10 +964,17 @@ html, body {
     document.addEventListener('click', (e) => {
       if (practice.classList.contains('active') && !finished) {
         if (!e.target.closest('button')) {
-          typingInput.focus();
+          focusInput();
         }
       }
     });
+
+    // iOS: тап по области тренировки — фокус без прыжка
+    practice.addEventListener('touchstart', (e) => {
+      if (finished) return;
+      if (e.target.closest('button')) return;
+      focusInput();
+    }, { passive: true });
 
     restartBtn.addEventListener('click', () => {
       if (target) startPractice();
@@ -947,7 +991,7 @@ html, body {
 
     function toggleZen() {
       document.body.classList.toggle('zen');
-      typingInput.focus();
+      focusInput();
       requestAnimationFrame(() => updateCursor());
     }
 
@@ -987,12 +1031,29 @@ html, body {
 
     cursorBlinkBtn.addEventListener('click', () => {
       setCursorBlink(!cursorBlink);
-      typingInput.focus();
+      focusInput();
     });
 
     window.addEventListener('resize', () => {
       if (practice.classList.contains('active')) updateCursor();
     });
+
+    // iOS: при появлении клавиатуры visualViewport сжимается —
+    // подстраиваем отступ снизу, чтобы блок тренировки не уезжал
+    function onViewportChange() {
+      if (!window.visualViewport) return;
+      const vv = window.visualViewport;
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.body.style.paddingBottom = kb > 40 ? kb + 'px' : '';
+      if (practice.classList.contains('active')) {
+        requestAnimationFrame(() => updateCursor());
+      }
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onViewportChange);
+      window.visualViewport.addEventListener('scroll', onViewportChange);
+    }
   </script>
 </body>
 </html>
