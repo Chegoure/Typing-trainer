@@ -166,12 +166,7 @@
       background: var(--cursor);
       vertical-align: text-bottom;
       margin-left: 1px;
-      animation: blink 1s step-end infinite;
       box-shadow: 0 0 6px rgba(78, 201, 176, 0.5);
-    }
-
-    @keyframes blink {
-      50% { opacity: 0; }
     }
 
     /* Эталонный текст — ровно 3 строки, без скроллбара */
@@ -233,7 +228,6 @@
       pointer-events: none;
       transition: left 0.06s cubic-bezier(0.22, 1, 0.36, 1),
                   top 0.06s cubic-bezier(0.22, 1, 0.36, 1);
-      animation: blink 1.05s step-end infinite;
       z-index: 10;
       box-shadow: 0 0 8px rgba(78, 201, 176, 0.45);
       will-change: left, top;
@@ -349,7 +343,7 @@
   <div class="card">
     <div id="setup">
       <label for="sourceText">Вставьте текст для тренировки</label>
-      <textarea id="sourceText" placeholder="Скопируйте сюда любой текст..."></textarea>
+      <textarea id="sourceText" placeholder="Wake up, Neo..."></textarea>
       <button class="btn" id="startBtn" disabled>Готово</button>
     </div>
 
@@ -371,11 +365,10 @@
 
       <textarea id="typingInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
 
-      <p class="hint">Пробел и Tab работают как обычно. Просто печатайте.</p>
-
       <div class="actions">
         <button class="btn btn-secondary" id="restartBtn">Заново</button>
         <button class="btn btn-secondary" id="newTextBtn">Новый текст</button>
+        <button class="btn btn-secondary" id="cursorBlinkBtn" title="Мигание курсора">Курсор: статика</button>
         <button class="btn btn-secondary" id="zenBtn">Дзен</button>
       </div>
 
@@ -404,6 +397,7 @@
     const newTextBtn = document.getElementById('newTextBtn');
     const zenBtn = document.getElementById('zenBtn');
     const zenFab = document.getElementById('zenFab');
+    const cursorBlinkBtn = document.getElementById('cursorBlinkBtn');
     const doneMessage = document.getElementById('doneMessage');
 
     let target = '';
@@ -766,6 +760,42 @@
 
     zenBtn.addEventListener('click', toggleZen);
     zenFab.addEventListener('click', toggleZen);
+
+    // Режим курсора: статика / мигание (общий таймер — оба синхронны)
+    let cursorBlink = false;
+    let caretVisible = true;
+    let blinkTimer = null;
+
+    function applyCaretOpacity() {
+      const op = (!cursorBlink || caretVisible) ? '1' : '0';
+      cursor.style.opacity = op;
+      if (lineCaret) lineCaret.style.opacity = op;
+    }
+
+    function setCursorBlink(on) {
+      cursorBlink = on;
+      cursorBlinkBtn.textContent = on ? 'Курсор: мигание' : 'Курсор: статика';
+      if (blinkTimer) {
+        clearInterval(blinkTimer);
+        blinkTimer = null;
+      }
+      if (on) {
+        caretVisible = true;
+        applyCaretOpacity();
+        blinkTimer = setInterval(() => {
+          caretVisible = !caretVisible;
+          applyCaretOpacity();
+        }, 530);
+      } else {
+        caretVisible = true;
+        applyCaretOpacity();
+      }
+    }
+
+    cursorBlinkBtn.addEventListener('click', () => {
+      setCursorBlink(!cursorBlink);
+      typingInput.focus();
+    });
 
     window.addEventListener('resize', () => {
       if (practice.classList.contains('active')) updateCursor();
